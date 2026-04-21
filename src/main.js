@@ -25,6 +25,11 @@ let moveState = { forward: false, backward: false, left: false, right: false };
 let velocity = new THREE.Vector3();
 let positionDisplay;
 
+// Mobile support
+const isMobile = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+let mobileLookState = { active: false, lastX: 0, lastY: 0 };
+let mobileEntered = false;
+
 // ═══════════════════════════════════════════════════════════════
 // INIT
 // ═══════════════════════════════════════════════════════════════
@@ -58,8 +63,13 @@ function init() {
     return;
   }
   
-  // Controls
-  controls = new PointerLockControls(camera, document.body);
+  // Controls — PointerLockControls is desktop only
+  if (!isMobile) {
+    controls = new PointerLockControls(camera, document.body);
+  } else {
+    // Mobile: camera starts free-floating, touch drag rotates
+    controls = { isLocked: false };
+  }
   
   // Post-processing
   composer = new EffectComposer(renderer);
@@ -191,23 +201,84 @@ function createFloorGrid() {
 function setupEventListeners() {
   // Start button
   document.getElementById('start-btn').addEventListener('click', () => {
-    controls.lock();
+    if (isMobile) {
+      // Mobile: just enter the scene, touch controls activate after
+      mobileEntered = true;
+      document.getElementById('overlay').classList.add('hidden');
+      document.getElementById('hud').classList.add('visible');
+      document.getElementById('mobile-hint').classList.add('visible');
+    } else {
+      controls.lock();
+    }
   });
   
-  // Lock/unlock
-  controls.addEventListener('lock', () => {
-    document.getElementById('overlay').classList.add('hidden');
-    document.getElementById('hud').classList.add('visible');
-    document.getElementById('crosshair').classList.add('visible');
-    document.getElementById('info-panel').classList.add('visible');
-  });
-  
-  controls.addEventListener('unlock', () => {
-    document.getElementById('overlay').classList.remove('hidden');
-    document.getElementById('hud').classList.remove('visible');
-    document.getElementById('crosshair').classList.remove('visible');
-    document.getElementById('info-panel').classList.remove('visible');
-  });
+  if (!isMobile) {
+    // Lock/unlock (desktop only)
+    controls.addEventListener('lock', () => {
+      document.getElementById('overlay').classList.add('hidden');
+      document.getElementById('hud').classList.add('visible');
+      document.getElementById('crosshair').classList.add('visible');
+      document.getElementById('info-panel').classList.add('visible');
+    });
+
+    controls.addEventListener('unlock', () => {
+      document.getElementById('overlay').classList.remove('hidden');
+      document.getElementById('hud').classList.remove('visible');
+      document.getElementById('crosshair').classList.remove('visible');
+      document.getElementById('info-panel').classList.remove('visible');
+    });
+  } else {
+    // Mobile: touch drag to look around
+    const canvas = document.getElementById('canvas');
+    canvas.addEventListener('touchstart', (e) => {
+      if (!mobileEntered) return;
+      mobileLookState.active = true;
+      mobileLookState.lastX = e.touches[0].clientX;
+      mobileLookState.lastY = e.touches[0].clientY;
+    }, { passive: true });
+
+    canvas.addEventListener('touchmove', (e) => {
+      if (!mobileEntered || !mobileLookState.active) return;
+      const dx = e.touches[0].clientX - mobileLookState.lastX;
+      const dy = e.touches[0].clientY - mobileLookState.lastY;
+      camera.rotation.y -= dx * 0.003;
+      camera.rotation.x -= dy * 0.003;
+      camera.rotation.x = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, camera.rotation.x));
+      mobileLookState.lastX = e.touches[0].clientX;
+      mobileLookState.lastY = e.touches[0].clientY;
+    }, { passive: true });
+
+    canvas.addEventListener('touchend', () => {
+      mobileLookState.active = false;
+    }, { passive: true });
+
+    // Virtual joystick for mobile forward/back/left/right
+    const joystick = document.getElementById('mobile-joystick');
+    const joyForward = document.getElementById('joy-forward');
+    const joyBack = document.getElementById('joy-back');
+    const joyLeft = document.getElementById('joy-left');
+    const joyRight = document.getElementById('joy-right');
+
+    const touchMove = (el, state, on) => {
+      el.addEventListener('touchstart', (e) => { e.preventDefault(); moveState[state] = on; }, { passive: false });
+      el.addEventListener('touchend', (e) => { e.preventDefault(); moveState[state] = false; }, { passive: false });
+      el.addEventListener('touchcancel', () => { moveState[state] = false; }, { passive: false });
+    };
+
+    if (joyForward) touchMove(joyForward, 'forward', true);
+    if (joyBack) touchMove(joyBack, 'backward', true);
+    if (joyLeft) touchMove(joyLeft, 'left', true);
+    if (joyRight) touchMove(joyRight, 'right', true);
+
+    // Back button to exit on mobile
+    document.getElementById('mobile-back').addEventListener('click', () => {
+      mobileEntered = false;
+      moveState = { forward: false, backward: false, left: false, right: false };
+      document.getElementById('overlay').classList.remove('hidden');
+      document.getElementById('hud').classList.remove('visible');
+      document.getElementById('mobile-hint').classList.remove('visible');
+    }, { passive: true });
+  }
   
   // Keyboard
   document.addEventListener('keydown', (e) => {
@@ -251,19 +322,26 @@ function animate(time) {
   lastTime = time;
   
   // Movement
-  if (controls.isLocked) {
+  const canMove = !isMobile ? controls.isLocked : mobileEntered;
+  if (canMove) {
     const speed = CONFIG.movement.speed;
     velocity.x *= CONFIG.movement.dampen;
     velocity.z *= CONFIG.movement.dampen;
-    
+
     if (moveState.forward) velocity.z -= speed * dt;
     if (moveState.backward) velocity.z += speed * dt;
     if (moveState.left) velocity.x -= speed * dt;
     if (moveState.right) velocity.x += speed * dt;
-    
-    controls.moveRight(velocity.x);
-    controls.moveForward(velocity.z);
-    
+
+    if (!isMobile) {
+      controls.moveRight(velocity.x);
+      controls.moveForward(-velocity.z);
+    } else {
+      // Mobile: move relative to camera facing direction
+      camera.translateX(velocity.x);
+      camera.translateZ(-velocity.z);
+    }
+
     // Update position display
     const pos = camera.position;
     positionDisplay.textContent = `${pos.x.toFixed(1)}, ${pos.y.toFixed(1)}, ${pos.z.toFixed(1)}`;

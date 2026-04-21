@@ -167,6 +167,16 @@
     }
     #info-panel.visible { opacity: 1; }
     
+    @media (hover: none) and (pointer: coarse) {
+      .desktop-hint { display: none; }
+      .mobile-hint-text { display: block !important; }
+    }
+
+    /* Mobile controls — shown via JS when mobileEntered */
+    #mobile-joystick.visible { display: block !important; }
+    #mobile-back.visible { display: block !important; }
+    #mobile-hint.visible { display: block !important; }
+
     @media (prefers-reduced-motion: reduce) {
       *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
     }
@@ -180,7 +190,8 @@
       <h1>VOID OBSERVATORY</h1>
       <p>Navigate through geometric voids. Discover hidden monuments in the darkness.</p>
       <button id="start-btn">ENTER</button>
-      <p class="hint">WASD to move · Mouse to look · ESC to exit</p>
+      <p class="hint desktop-hint">WASD to move · Mouse to look · ESC to exit</p>
+      <p class="hint mobile-hint-text" style="display:none">Touch to look around · D-pad to move</p>
     </div>
   </div>
   
@@ -199,6 +210,19 @@
   <div id="info-panel">
     <span>ESC to release cursor</span>
   </div>
+
+  <!-- Mobile controls -->
+  <div id="mobile-joystick" style="display:none; position:fixed; bottom:0; left:0; right:0; height:200px; z-index:20; pointer-events:none;">
+    <!-- D-pad: joy-back=forward(up), joy-forward=backward(down) -->
+    <div id="joy-forward" style="position:absolute; bottom:140px; left:50%; transform:translateX(-50%); width:60px; height:44px; background:rgba(34,170,170,0.15); border:1px solid rgba(34,170,170,0.4); border-radius:6px; display:flex; align-items:center; justify-content:center; pointer-events:all; touch-action:none; color:var(--teal); font-size:11px; font-family:monospace;">▲</div>
+    <div id="joy-back" style="position:absolute; bottom:60px; left:50%; transform:translateX(-50%); width:60px; height:44px; background:rgba(34,170,170,0.15); border:1px solid rgba(34,170,170,0.4); border-radius:6px; display:flex; align-items:center; justify-content:center; pointer-events:all; touch-action:none; color:var(--teal); font-size:11px; font-family:monospace;">▼</div>
+    <div id="joy-left" style="position:absolute; bottom:100px; left:calc(50% - 70px); width:60px; height:44px; background:rgba(34,170,170,0.15); border:1px solid rgba(34,170,170,0.4); border-radius:6px; display:flex; align-items:center; justify-content:center; pointer-events:all; touch-action:none; color:var(--teal); font-size:11px; font-family:monospace;">◄</div>
+    <div id="joy-right" style="position:absolute; bottom:100px; left:calc(50% + 10px); width:60px; height:44px; background:rgba(34,170,170,0.15); border:1px solid rgba(34,170,170,0.4); border-radius:6px; display:flex; align-items:center; justify-content:center; pointer-events:all; touch-action:none; color:var(--teal); font-size:11px; font-family:monospace;">►</div>
+  </div>
+
+  <div id="mobile-back" style="display:none; position:fixed; top:16px; right:16px; z-index:25; background:rgba(5,5,12,0.8); border:1px solid var(--teal); color:var(--teal); font-family:monospace; font-size:11px; padding:10px 16px; border-radius:4px; min-height:44px; min-width:80px; text-align:center; cursor:pointer; touch-action:manipulation; backdrop-filter:blur(4px);">✕ EXIT</div>
+
+  <div id="mobile-hint" style="display:none; position:fixed; bottom:var(--space-md); right:var(--space-md); z-index:20; font-family:'SF Mono','JetBrains Mono',monospace; font-size:10px; color:var(--fg-dim);">DRAG TO LOOK · D-PAD TO MOVE</div>
   
   <script type="importmap">
   {
